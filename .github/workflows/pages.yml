@@ -1,0 +1,71 @@
+name: Deploy frontend to GitHub Pages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pages: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - name: Build for repository Pages path
+        run: npm run build
+        env:
+          GITHUB_PAGES: 'true'
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload static frontend
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - name: Preserve browser test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pages-browser-test-reports
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy verified frontend artifact
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+.env
+.env.*
+!.env.example
+private-packs/
+runtime/
+*.pdf
+*.log
+.DS_Store
